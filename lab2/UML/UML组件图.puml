@@ -1,107 +1,75 @@
-@startuml UML组件图
-'============================================================
-' 多人共享记账系统 —— 组件图（结构性图）
-' 说明模块划分与模块间交互
-'============================================================
-title 多人共享记账系统 · 组件图（模块划分与交互）
-skinparam backgroundColor #FFFFFF
+@startuml "组件图 - 多人共享记账系统"
 skinparam defaultFontName "Microsoft YaHei"
-skinparam defaultFontSize 13
-skinparam shadowing false
-skinparam componentStyle rectangle
-skinparam linetype ortho
-skinparam nodesep 35
-skinparam ranksep 40
+skinparam backgroundColor #FFFFFF
 
-actor "用户" as User
-
-package "表现层（Presentation）" {
-  [Web 前端界面] as UI
-  note right of UI
-    账本概览 / 记录列表 /
-    记录编辑 / 待审核 / 成员管理 /
-    结算单 / 日志 等页面
-  end note
+' 定义组件
+component "多人共享记账系统" {
+  node "表现层模块" as Presentation {
+    artifact WebUI
+    artifact RestApi
+    artifact AuthInterceptor
+  }
+  node "账本与成员模块" as LedgerMemberModule {
+    artifact LedgerMemberService
+    artifact InvitationService
+  }
+  node "记录与审核模块" as RecordAuditModule {
+    artifact RecordService
+    artifact AuditService
+  }
+  node "分类模块" as CategoryModule {
+    artifact CategoryService
+  }
+  node "统计与预算模块" as StatisticsBudgetModule {
+    artifact StatisticsService
+    artifact BudgetService
+  }
+  node "结算模块" as SettlementModule {
+    artifact SettlementService
+  }
+  node "操作日志模块" as LogModule {
+    artifact LogService
+  }
+  node "支撑模块" as SupportModule {
+    artifact AmountAllocator
+    artifact StateGuard
+    artifact IdempotentGuard
+    artifact OptimisticLock
+  }
 }
 
-package "接入层（Interface）" {
-  [REST 接口层] as API
-  [会话与权限拦截器] as Auth
-}
+' 定义外部实体
+node "用户" as User
+node "关系数据库" as Database
 
-package "业务层（Service）" {
-  [账本与成员服务\nLedgerMemberService] as MS
-  [记录与状态流转服务\nRecordService] as RS
-  [审核服务\nAuditService] as AS
-  [分类服务\nCategoryService] as CS
-  [统计服务\nStatisticsService] as SS
-  [预算服务\nBudgetService] as BS
-  [结算服务\nSettlementService] as SS2
-  [操作日志服务\nLogService] as LS
-}
+' 定义模块与外部实体之间的关系
+Presentation --> User : 使用
+Presentation --> Database : 读写
 
-package "支撑层（Support）" {
-  [金额与分摊算法\nAmountAllocator] as AA
-  [状态机校验\nStateGuard] as SG
-  [幂等去重\nIdempotentGuard] as IG
-  [乐观锁版本校验\nOptimisticLock] as OL
-}
+' 定义模块之间的关系
+Presentation --> LedgerMemberModule : 调用
+Presentation --> RecordAuditModule : 调用
+Presentation --> CategoryModule : 调用
+Presentation --> StatisticsBudgetModule : 调用
+Presentation --> SettlementModule : 调用
+Presentation --> LogModule : 调用
 
-package "数据层（Data）" {
-  database "关系数据库" as DB
-}
+LedgerMemberModule --> LogModule : 记录成员变更
+RecordAuditModule --> LogModule : 记录记录流转
+SettlementModule --> LogModule : 记录结算过程
+CategoryModule --> LogModule : 记录分类变更
 
-User --> UI
-UI --> API : HTTPS / JSON
-API --> Auth
-Auth --> MS
-Auth --> RS
-Auth --> AS
-Auth --> CS
-Auth --> SS
-Auth --> BS
-Auth --> SS2
-Auth --> LS
+RecordAuditModule --> SupportModule : 依赖校验规则
+StatisticsBudgetModule --> SupportModule : 依赖金额算法
+SettlementModule --> SupportModule : 依赖金额算法
 
-MS --> AA : 成员资格校验
-RS --> AA : 分摊与金额校验
-RS --> SG : 状态流转校验
-AS --> SG : 审核状态校验
-RS --> IG : 新增记录去重
-RS --> OL : 保存草稿版本比对
-SS --> SG : 统计口径（仅已通过）
-SS --> AA : 成员分摊汇总
-BS --> SS : 预算已用金额
-SS2 --> SS : 读取已通过记录
-SS2 --> AA : 净额与转账配对
-AS --> LS : 写审核日志
-RS --> LS : 写提交/撤回/冲正日志
-MS --> LS : 写成员变更日志
-SS2 --> LS : 写结算日志
+StatisticsBudgetModule --> RecordAuditModule : 读取已通过记录
+SettlementModule --> StatisticsBudgetModule : 读取统计结果
 
-MS --> DB
-RS --> DB
-AS --> DB
-CS --> DB
-SS --> DB
-BS --> DB
-SS2 --> DB
-LS --> DB
-
-note bottom of RS
-  记录服务是核心业务枢纽：
-  草稿保存、提交、撤回、
-  作废、冲正、查询均在此，
-  状态合法性由 StateGuard
-  统一把关（REQ-015）。
-end note
-
-note bottom of SS2
-  结算服务只读取统计服务
-  产出的"已通过且未冲正"
-  记录明细，自行计算净额
-  与转账方案并落快照，
-  不直接修改记录（REQ-034）。
-end note
-
+LedgerMemberModule --> Database : 读写
+RecordAuditModule --> Database : 读写
+CategoryModule --> Database : 读写
+StatisticsBudgetModule --> Database : 读写
+SettlementModule --> Database : 读写
+LogModule --> Database : 追加写入
 @enduml

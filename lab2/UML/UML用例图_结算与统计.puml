@@ -1,0 +1,61 @@
+@startuml "用例图 - 多人共享记账系统（统计与结算）"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+left to right direction
+
+' 定义参与者
+actor 管理员 as Admin
+actor 记账成员 as Writer
+actor 只读成员 as Reader
+
+' 统计与预算
+rectangle "统计与预算" {
+    usecase "查看账本概览" as UC018
+    usecase "分类统计" as UC019
+    usecase "成员收支统计" as UC020
+    usecase "月度收支趋势" as UC021
+    usecase "预算执行进度" as UC022
+    usecase "设置预算" as UC023
+}
+
+' 分类与结算
+rectangle "分类与结算" {
+    usecase "新建与停用分类" as UC024
+    usecase "发起结算并生成结算单" as UC025
+    usecase "确认结算单" as UC026
+    usecase "对结算单申诉" as UC027
+    usecase "管理员裁决" as UC028
+    usecase "查看转账方案" as UC029
+}
+
+' 参与者之间的继承：只读成员的能力是记账成员的子集，记账成员的能力是管理员的子集
+Reader --|> Writer : 继承
+Writer --|> Admin : 继承
+
+' 只读成员：只能查看统计
+Reader --> UC018
+Reader --> UC019
+Reader --> UC020
+Reader --> UC021
+Reader --> UC022
+
+' 记账成员：在只读成员能力之外
+Writer --> UC024
+Writer --> UC026
+Writer --> UC027
+Writer --> UC029
+
+' 管理员：在记账成员能力之外
+Admin --> UC023
+Admin --> UC025
+Admin --> UC028
+
+' 定义用例之间的关系
+UC027 .> UC026 : 扩展
+UC028 .> UC027 : 扩展
+UC029 .> UC025 : 扩展
+UC019 .> UC018 : 扩展
+UC020 .> UC018 : 扩展
+UC021 .> UC018 : 扩展
+UC022 .> UC018 : 扩展
+@enduml

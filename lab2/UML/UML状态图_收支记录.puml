@@ -1,28 +1,11 @@
-@startuml UML状态图_收支记录
-'============================================================
-' 多人共享记账系统 —— 收支记录状态机（行为性图）
-' 对应 REQ-015 状态流转规则表
-'============================================================
-title 收支记录状态机（REQ-015）
-skinparam backgroundColor #FFFFFF
+@startuml "状态图 - 收支记录"
 skinparam defaultFontName "Microsoft YaHei"
-skinparam defaultFontSize 14
-skinparam shadowing false
-skinparam linetype polyline
-skinparam nodesep 55
-skinparam ranksep 60
+skinparam backgroundColor #FFFFFF
 
-[*] --> DRAFT : 新建记录（录入即存草稿）
-
-state "草稿" as DRAFT
-state "待审核" as PENDING
-state "已通过" as APPROVED
-state "已驳回" as REJECTED
-state "已作废" as VOIDED
-state "已冲正" as REVERSED
+[*] --> DRAFT : 新建记录
 
 DRAFT --> PENDING : 记录人提交
-DRAFT --> APPROVED : 管理员提交本人记录\n【自审豁免】REQ-016
+DRAFT --> APPROVED : 管理员提交本人记录
 
 PENDING --> APPROVED : 管理员审核通过
 PENDING --> REJECTED : 管理员驳回
@@ -38,43 +21,10 @@ APPROVED --> REVERSED : 冲正记录审核通过
 VOIDED --> [*] : 终态
 REVERSED --> [*] : 终态
 
-note top of PENDING
-  <b>提交时校验</b>
-  金额 > 0 且 ≤ 500000.00、最多两位小数、
-  分摊金额之和 = 记录金额、分类未停用、
-  成员仍在账本
-  （REQ-017 / 018 / 020 / 038）
-end note
-
-note right of REJECTED
-  <b>驳回必须填写原因</b>，原因保留在记录历史中；
-  记录人可以修改并重新提交，
-  重新提交后回到待审核（REQ-010）。
-end note
-
-note right of APPROVED
-  <b>仅"已通过"计入统计</b>，
-  月份按记账日期归属（REQ-024 / REQ-043）。
-  已通过后不允许直接修改金额。
-end note
-
-note bottom of VOIDED
-  <b>作废必须填写作废原因</b>；
-  作废后不计入统计，但记录仍保留在列表中
-  可查、可追溯（REQ-012 / REQ-045）。
-end note
-
-note bottom of REVERSED
-  <b>冲正记录与原记录双向关联</b>：
-  金额相反、类型相同，统计中与原记录净额相抵；
-  原记录仍可查询（REQ-013 / REQ-014）。
-end note
-
-note left of DRAFT
-  <b>非法流转一律拒绝</b>
-  例：已通过后撤回、已作废后冲正。
-  后到操作按 REQ-036 提示
-  "记录状态已变更，请刷新"。
-end note
-
+state "草稿" as DRAFT
+state "待审核" as PENDING
+state "已通过" as APPROVED
+state "已驳回" as REJECTED
+state "已作废" as VOIDED
+state "已冲正" as REVERSED
 @enduml

@@ -1,132 +1,78 @@
-@startuml UML用例图
-'============================================================
-' 多人共享记账系统 —— 用例图（行为性图）
-' 三类角色：管理员 / 记账成员 / 只读成员
-'============================================================
-title 多人共享记账系统 · 用例图
-skinparam backgroundColor #FFFFFF
+@startuml "用例图 - 多人共享记账系统（账本与记录审核）"
 skinparam defaultFontName "Microsoft YaHei"
-skinparam defaultFontSize 13
-skinparam shadowing false
-skinparam packageStyle rectangle
-skinparam nodesep 30
-skinparam ranksep 28
-skinparam linetype ortho
+skinparam backgroundColor #FFFFFF
 left to right direction
-skinparam usecase {
-  BackgroundColor #FBFCFE
-  BorderColor #98A2B3
-  FontColor #101828
+
+' 定义参与者
+actor 管理员 as Admin
+actor 记账成员 as Writer
+actor 只读成员 as Reader
+
+' 账本与成员
+rectangle "账本与成员" {
+    usecase "创建账本" as UC001
+    usecase "邀请成员并指定角色" as UC002
+    usecase "调整成员角色" as UC003
+    usecase "移除成员" as UC004
+    usecase "退出账本" as UC005
 }
 
-actor "管理员" as Admin
-actor "记账成员" as Writer
-actor "只读成员" as Reader
-
-rectangle "多人共享记账系统" {
-
-  usecase "创建账本" as UC01
-  usecase "邀请成员并指定角色" as UC02
-  usecase "调整成员角色" as UC03
-  usecase "移除成员" as UC04
-  usecase "退出账本" as UC05
-
-  usecase "录入记录并存草稿" as UC07
-  usecase "编辑草稿" as UC08
-  usecase "提交审核" as UC09
-  usecase "撤回待审核记录" as UC10
-  usecase "多条件查询记录" as UC11
-  usecase "查看记录详情与分摊明细" as UC12
-
-  usecase "审核通过" as UC13
-  usecase "审核驳回" as UC14
-  usecase "作废记录" as UC15
-  usecase "发起冲正更正" as UC16
-
-  usecase "查看账本概览" as UC17
-  usecase "分类统计" as UC18
-  usecase "成员收支统计" as UC19
-  usecase "月度收支趋势" as UC20
-  usecase "预算执行进度" as UC21
-  usecase "设置预算" as UC22
-
-  usecase "新建/停用/删除分类" as UC23
-  usecase "发起结算并生成结算单" as UC24
-  usecase "确认结算单" as UC25
-  usecase "对结算单申诉" as UC26
-  usecase "管理员裁决" as UC27
-  usecase "查看转账方案" as UC28
-
-  usecase "查询操作日志" as UC29
+' 记录管理
+rectangle "记录管理" {
+    usecase "录入记录并存草稿" as UC006
+    usecase "编辑草稿" as UC007
+    usecase "提交审核" as UC008
+    usecase "撤回待审核记录" as UC009
+    usecase "多条件查询记录" as UC010
+    usecase "查看记录详情与分摊明细" as UC011
 }
 
-'---------- 管理员 ----------
-Admin -- UC01
-Admin -- UC02
-Admin -- UC03
-Admin -- UC04
-Admin -- UC13
-Admin -- UC14
-Admin -- UC15
-Admin -- UC16
-Admin -- UC22
-Admin -- UC24
-Admin -- UC27
-Admin -- UC29
+' 审核与更正
+rectangle "审核与更正" {
+    usecase "审核通过" as UC012
+    usecase "审核驳回" as UC013
+    usecase "作废记录" as UC014
+    usecase "发起冲正更正" as UC015
+}
 
-'---------- 记账成员 ----------
-Writer -- UC05
-Writer -- UC07
-Writer -- UC08
-Writer -- UC09
-Writer -- UC10
-Writer -- UC11
-Writer -- UC12
-Writer -- UC16
-Writer -- UC17
-Writer -- UC18
-Writer -- UC19
-Writer -- UC20
-Writer -- UC21
-Writer -- UC23
-Writer -- UC25
-Writer -- UC26
-Writer -- UC28
+' 操作日志
+rectangle "操作日志" {
+    usecase "查询与自己相关的操作日志" as UC016
+    usecase "查询全账本操作日志" as UC017
+}
 
-'---------- 只读成员 ----------
-Reader -- UC11
-Reader -- UC12
-Reader -- UC17
-Reader -- UC18
-Reader -- UC19
-Reader -- UC20
-Reader -- UC21
+' 参与者之间的继承：只读成员的能力是记账成员的子集，记账成员的能力是管理员的子集
+Reader --|> Writer : 继承
+Writer --|> Admin : 继承
 
-'只读成员的查看能力被记账成员继承
-Reader --|> Writer : <<继承>>
+' 只读成员：只能查看
+Reader --> UC010
+Reader --> UC011
 
-'---------- 包含 / 扩展 ----------
-UC01 .> UC02 : <<包含>>\n自动生成默认分类
-UC09 .> UC13 : <<包含>>\n按角色分流
-UC10 ..> UC09 : <<扩展>>\n撤回
-UC24 .> UC28 : <<包含>>\n生成转账方案
-UC25 ..> UC26 : <<扩展>>\n有异议时申诉
-UC27 ..> UC25 : <<扩展>>\n裁决后生效
+' 记账成员：在只读成员能力之外
+Writer --> UC005
+Writer --> UC006
+Writer --> UC007
+Writer --> UC008
+Writer --> UC009
+Writer --> UC015
+Writer --> UC016
 
-note bottom of UC13
-  管理员本人录入的记录提交即视为通过
-  （自审豁免），并写入操作日志（REQ-016）。
-end note
+' 管理员：在记账成员能力之外
+Admin --> UC001
+Admin --> UC002
+Admin --> UC003
+Admin --> UC004
+Admin --> UC012
+Admin --> UC013
+Admin --> UC014
+Admin --> UC017
 
-note bottom of UC27
-  裁决结果为维持或作废；裁决后
-  不再要求成员重新确认（REQ-033）。
-end note
-
-note right of UC29
-  管理员可查全账本日志，
-  记账成员仅可查与己相关，
-  日志只增不改不删。
-end note
-
+' 定义用例之间的关系
+UC002 .> UC001 : 扩展
+UC009 .> UC008 : 扩展
+UC012 .> UC008 : 扩展
+UC013 .> UC008 : 扩展
+UC014 .> UC008 : 扩展
+UC011 .> UC010 : 扩展
 @enduml

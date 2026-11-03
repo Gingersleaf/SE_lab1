@@ -1,0 +1,60 @@
+@startuml "序列图 - 多人共享记账系统"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+
+actor 管理员 as Admin
+actor 记账成员甲 as MemberA
+actor 记账成员乙 as MemberB
+participant "结算服务" as SET
+participant "统计服务" as SS
+participant "金额分摊算法" as AA
+participant "操作日志服务" as LS
+participant "关系数据库" as DB
+
+== 一、发起结算 ==
+Admin -> SET: createSettlement(ledgerId)
+SET -> SS: listApprovedRecords(ledgerId)
+SS --> SET: List<Record>
+SET -> AA: allocateShares(records)
+AA --> SET: List<ShareItem>
+SET -> SET: calculateNetAmounts(shares)
+SET -> SET: matchTransfers(nets)
+SET -> DB: saveSettlement()
+SET -> DB: saveSettlementMembers()
+SET -> DB: saveTransferPlan()
+SET -> LS: log(SETTLEMENT_CREATE)
+LS -> DB: appendOperationLog()
+SET --> Admin: Settlement(待确认)
+
+== 二、成员逐个确认 ==
+MemberA -> SET: confirm(settlementId, memberId)
+SET -> DB: saveMemberConfirmation()
+SET -> LS: log(SETTLEMENT_CONFIRM)
+LS -> DB: appendOperationLog()
+SET --> MemberA: Settlement(待确认)
+
+MemberB -> SET: confirm(settlementId, memberId)
+SET -> DB: saveMemberConfirmation()
+SET -> LS: log(SETTLEMENT_CONFIRM)
+LS -> DB: appendOperationLog()
+SET -> DB: updateSettlementStatus()
+SET --> MemberB: Settlement(已确认)
+SET --> Admin: 结算单已全部确认
+
+== 三、成员申诉 ==
+MemberA -> SET: appeal(settlementId, memberId, reason)
+SET -> DB: updateSettlementStatus()
+SET -> DB: saveAppealReason()
+SET -> LS: log(SETTLEMENT_APPEAL)
+LS -> DB: appendOperationLog()
+SET --> Admin: Settlement(有争议)
+
+== 四、管理员裁决 ==
+Admin -> SET: verdictBy(settlementId, result, reason)
+SET -> DB: updateSettlementStatus()
+SET -> DB: saveVerdict()
+SET -> LS: log(SETTLEMENT_VERDICT)
+LS -> DB: appendOperationLog()
+SET --> MemberA: Settlement(已确认或已作废)
+SET --> MemberB: Settlement(已确认或已作废)
+@enduml

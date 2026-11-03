@@ -1,54 +1,13 @@
-@startuml UML通信图
-'============================================================
-' 多人共享记账系统 —— 结算流程通信图（交互性图）
-' 强调"谁与谁对话"，与时序图侧重"先后顺序"形成互补
-'============================================================
-title 结算流程通信图（发起 → 确认 → 申诉 / 裁决）
-skinparam backgroundColor #FFFFFF
+@startuml "通信图 - 多人共享记账系统"
 skinparam defaultFontName "Microsoft YaHei"
-skinparam defaultFontSize 13
-skinparam shadowing false
-skinparam linetype ortho
-skinparam nodesep 70
-skinparam ranksep 80
-skinparam ArrowFontSize 12
-left to right direction
+skinparam backgroundColor #FFFFFF
 
 object "管理员" as Admin
 object "记账成员" as Member
-object "结算服务\nSettlementService" as SET
-object "统计服务\nStatisticsService" as SS
-object "关系数据库" as DB
+object "结算服务" as SET
+object "统计服务" as SS
 
-'--- 发起结算 ---
-Admin -> SET : ①发起结算()
-SET -> SS : ②取已通过且未冲正的记录()
-SS --> SET : ③返回记录明细()
-SET -> DB : ④写入结算单与快照\n(成员净额 / 转账方案)
-SET --> Admin : ⑤返回结算单(待确认)
-
-'--- 成员确认与申诉 ---
-Member -> SET : ⑥确认结算单()
-SET -> DB : ⑦更新成员确认状态与结算单状态
-Member -> SET : ⑧发起申诉()
-
-'--- 管理员裁决 ---
-Admin -> SET : ⑨裁决(维持 / 作废)
-SET -> Member : ⑩返回最新结算单状态
-
-note bottom of SET
-  <b>净额口径</b>：只统计"已通过"且"未冲正"的记录，
-  按分摊明细归集到成员，成员净额之和等于账本净额；
-  净额拆分为"该收""该付"两拨，排序后依次配对
-  生成转账方案（REQ-030 / REQ-031 / REQ-043）。
-end note
-
-note bottom of DB
-  结算单生成时把计算结果与涉及的记录存成快照，
-  之后账本新增记录不追溯修改本单，
-  相关金额计入下一次结算（REQ-034）。
-  结算的生成、确认、申诉、裁决均写入操作日志
-  （REQ-039 / REQ-040）。
-end note
-
+Admin -> SET : createSettlement() 返回结算单
+SET -> SS : listApprovedRecords() 返回已通过记录
+Member -> SET : confirmOrAppeal() 返回最新结算单状态
 @enduml
