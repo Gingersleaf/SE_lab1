@@ -1,0 +1,84 @@
+@startuml UML时序图
+'============================================================
+' 多人共享记账系统 —— 核心交互时序图（交互性图）
+' 三段：提交审核 / 冲突拒绝 / 发起结算
+'============================================================
+title 核心交互时序图（提交审核 → 审核 → 发起结算）
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam sequenceArrowThickness 1
+skinparam ParticipantPadding 12
+skinparam ParticipantFontSize 13
+skinparam responseMessageBelowArrow true
+
+actor "记账成员" as Member
+actor "管理员" as Admin
+participant "前端界面" as FE
+participant "REST 接口层" as API
+participant "记录服务" as RS
+participant "状态机校验" as SG
+participant "幂等/版本校验" as GUARD
+participant "统计服务" as SS
+participant "结算服务" as SET
+database "关系数据库" as DB
+
+== 一、成员提交记录 ==
+Member -> FE: 填写记录并点击"提交审核"
+FE -> API: POST /records/{id}/submit\n{version, requestId}
+API -> RS: submit(recordId, actor)
+RS -> GUARD: 校验幂等标识(7天)\n与版本号
+GUARD --> RS: 通过
+RS -> SG: 校验状态流转\n草稿→待审核
+SG --> RS: 允许
+RS -> DB: 更新状态=待审核\n写记录历史+提交日志
+RS --> API: 返回待审核记录
+API --> FE: 200 记录已提交
+FE --> Member: 提示"已提交，等待管理员审核"
+
+== 二、并发冲突：审核与撤回同时发生 ==
+Member -> FE: 点击"撤回"
+FE -> API: POST /records/{id}/withdraw
+API -> RS: withdraw(recordId, actor)
+RS -> SG: 校验状态仍为待审核？
+SG --> RS: 状态已变更(已被审核通过)
+RS --> API: 拒绝 REQ-036
+API --> FE: 409 记录状态已变更，请刷新
+FE --> Member: 提示记录状态已变更，请刷新
+
+== 三、管理员审核通过并计入统计 ==
+Admin -> FE: 在待审核列表点击"通过"
+FE -> API: POST /records/{id}/approve
+API -> RS: approve(recordId, admin)
+RS -> SG: 校验 待审核→已通过
+SG --> RS: 允许
+RS -> DB: 更新状态=已通过\n写审核日志
+RS -> SS: 刷新统计缓存\n(仅统计已通过记录)
+SS --> RS: 已刷新
+RS --> API: 返回已通过记录
+API --> FE: 200 审核通过
+FE --> Admin: 提示"已通过，已计入统计"
+
+== 四、管理员发起结算 ==
+Admin -> FE: 点击"发起结算"
+FE -> API: POST /settlements
+API -> SET: createSettlement(ledgerId, admin)
+SET -> SS: 取"已通过且未冲正"记录明细
+SS --> SET: 明细列表
+SET -> SET: 计算成员应付/应收净额\n按金额排序配对生成转账方案
+SET -> DB: 写入结算单+成员净额快照\n+转账方案+生成日志
+SET --> API: 返回结算单(待确认)
+API --> FE: 200 结算单已生成
+FE --> Admin: 展示结算单与转账方案
+
+== 五、成员确认 / 申诉 ==
+Member -> FE: 打开结算单点击"确认"或"申诉"
+FE -> API: POST /settlements/{id}/confirm|appeal
+API -> SET: 确认或登记申诉
+SET -> DB: 更新结算单状态\n写确认/申诉日志
+SET --> API: 返回最新结算单
+API --> FE: 200
+FE --> Member: 全部确认后显示"已确认"；申诉后显示"有争议"
+
+@enduml

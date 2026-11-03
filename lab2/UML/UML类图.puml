@@ -1,0 +1,292 @@
+@startuml UML类图
+'============================================================
+' 多人共享记账系统 —— 类图（结构性图）
+' 依据：实验一 requirements.md REQ-001 ~ REQ-047
+' 初稿由大模型生成，人工逐条核对需求编号后修改定稿
+'============================================================
+title 多人共享记账系统 · 类图
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 45
+skinparam ranksep 55
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+hide empty methods
+
+'---------------- 账户与账本 ----------------
+package "账户与账本模块" {
+  enum Role <<枚举>> {
+    ADMIN : 管理员
+    WRITER : 记账成员
+    READER : 只读成员
+  }
+  enum MemberStatus <<枚举>> {
+    ACTIVE : 在册
+    LEFT : 已退出或被移除
+  }
+  class User <<实体>> {
+    + userId : UUID
+    + accountName : String
+    + displayName : String
+    + passwordHash : String
+    + status : Enum
+  }
+  class Ledger <<实体>> {
+    + ledgerId : UUID
+    + name : String
+    + adminMemberId : UUID
+    + createdAt : DateTime
+    + memberLimit : int = 50
+    + recordLimit : int = 100000
+  }
+  class LedgerMember <<实体>> {
+    + memberId : UUID
+    + ledgerId : UUID
+    + userId : UUID
+    + role : Role
+    + status : MemberStatus
+    + joinedAt : DateTime
+    + settlementEligible : boolean
+  }
+  class Invitation <<实体>> {
+    + invitationId : UUID
+    + ledgerId : UUID
+    + token : String
+    + inviteRole : Role
+    + status : Enum
+    + expiresAt : DateTime
+    + usedCount : int
+  }
+}
+
+'---------------- 记录域 ----------------
+package "记录与审核模块" {
+  enum RecordStatus <<枚举>> {
+    DRAFT : 草稿
+    PENDING : 待审核
+    APPROVED : 已通过
+    REJECTED : 已驳回
+    VOIDED : 已作废
+    REVERSED : 已冲正
+  }
+  enum RecordType <<枚举>> {
+    EXPENSE : 支出
+    INCOME : 收入
+  }
+  enum CategoryStatus <<枚举>> {
+    ENABLED : 启用
+    DISABLED : 停用
+  }
+  class Record <<实体>> {
+    + recordId : UUID
+    + ledgerId : UUID
+    + creatorId : UUID
+    + payerId : UUID
+    + categoryId : UUID
+    + type : RecordType
+    + amount : Decimal(12,2)
+    + recordDate : Date
+    + note : String
+    + status : RecordStatus
+    + version : int
+    + requestId : String
+    + reversalOfId : UUID
+    + reversedById : UUID
+    + createdAt : DateTime
+    + submittedAt : DateTime
+    --
+    + submit() : void
+    + withdraw() : void
+    + approve() : void
+    + reject(reason) : void
+    + voidRecord(reason) : void
+    + createReversal() : Record
+  }
+  class ShareItem <<实体>> {
+    + shareId : UUID
+    + recordId : UUID
+    + memberId : UUID
+    + amount : Decimal(12,2)
+    + isRemainderHolder : boolean
+  }
+  class RecordTrace <<实体>> {
+    + traceId : UUID
+    + recordId : UUID
+    + action : Enum
+    + actorId : UUID
+    + reason : String
+    + fromStatus : RecordStatus
+    + toStatus : RecordStatus
+    + occurredAt : DateTime
+  }
+  class Category <<实体>> {
+    + categoryId : UUID
+    + ledgerId : UUID
+    + name : String
+    + isDefault : boolean
+    + status : CategoryStatus
+    + createdAt : DateTime
+  }
+}
+
+'---------------- 预算与统计 ----------------
+package "统计与预算模块" {
+  class Budget <<实体>> {
+    + budgetId : UUID
+    + ledgerId : UUID
+    + categoryId : UUID
+    + amount : Decimal(12,2)
+    + warningRatio : Decimal = 0.9
+    + createdBy : UUID
+    + createdAt : DateTime
+  }
+  class StatResult <<值对象>> {
+    + dimension : String
+    + income : Decimal(12,2)
+    + expense : Decimal(12,2)
+    + net : Decimal(12,2)
+    + month : String
+  }
+}
+
+'---------------- 结算域 ----------------
+package "结算模块" {
+  enum SettlementStatus <<枚举>> {
+    PENDING_CONFIRM : 待确认
+    CONFIRMED : 已确认
+    DISPUTED : 有争议
+    VOIDED : 已作废
+  }
+  class Settlement <<实体>> {
+    + settlementId : UUID
+    + ledgerId : UUID
+    + status : SettlementStatus
+    + createdBy : UUID
+    + createdAt : DateTime
+    + confirmedAt : DateTime
+    + verdict : String
+    + verdictReason : String
+    + snapshotAt : DateTime
+  }
+  class SettlementMember <<实体>> {
+    + settlementId : UUID
+    + memberId : UUID
+    + netAmount : Decimal(12,2)
+    + confirmed : boolean
+    + confirmedAt : DateTime
+    + appealed : boolean
+    + appealReason : String
+  }
+  class TransferPlanItem <<实体>> {
+    + itemId : UUID
+    + settlementId : UUID
+    + seq : int
+    + fromMemberId : UUID
+    + toMemberId : UUID
+    + amount : Decimal(12,2)
+  }
+}
+
+'---------------- 支撑模块 ----------------
+package "公共支撑模块" {
+  enum LogActionType <<枚举>> {
+    MEMBER_JOIN : 成员加入
+    MEMBER_LEAVE : 成员退出
+    ROLE_CHANGE : 角色变更
+    RECORD_SUBMIT : 记录提交
+    RECORD_APPROVE : 审核通过
+    RECORD_REJECT : 审核驳回
+    RECORD_WITHDRAW : 记录撤回
+    RECORD_VOID : 记录作废
+    RECORD_REVERSE : 发起冲正
+    SETTLEMENT_CREATE : 结算生成
+    SETTLEMENT_CONFIRM : 结算确认
+    SETTLEMENT_APPEAL : 结算申诉
+    SETTLEMENT_VERDICT : 结算裁决
+    SELF_REVIEW : 管理员自审豁免
+    ACCESS_DENIED : 越权拒绝
+  }
+  class OperationLog <<实体>> {
+    + logId : UUID
+    + ledgerId : UUID
+    + actorId : UUID
+    + action : LogActionType
+    + targetType : String
+    + targetId : UUID
+    + params : String
+    + occurredAt : DateTime
+    + relatedMemberIds : List<UUID>
+  }
+  class RequestDedup <<实体>> {
+    + requestId : String
+    + userId : UUID
+    + ledgerId : UUID
+    + resultRecordId : UUID
+    + createdAt : DateTime
+    + expireAt : DateTime
+  }
+}
+
+'---------------- 关系 ----------------
+Ledger "1" *-- "1..50" LedgerMember : 拥有（含唯一管理员）
+User "1" -- "0..*" LedgerMember : 以成员身份加入
+Ledger "1" -- "0..*" Invitation : 签发邀请
+LedgerMember "1" -- "0..*" Invitation : 发起
+
+Ledger "1" -- "0..*" Record : 收录
+LedgerMember "1" -- "0..*" Record : 录入 / 付款
+Category "1" -- "0..*" Record : 归类
+Record "1" *-- "1..*" ShareItem : 分摊快照
+LedgerMember "1" -- "0..*" ShareItem : 承担分摊
+Record "1" -- "0..1" Record : 冲正 / 被冲正
+Record "1" -- "0..*" RecordTrace : 状态历史
+Ledger "1" -- "0..*" Category : 自建分类
+
+Ledger "1" -- "0..*" Budget : 设定
+Category "0..1" -- "0..*" Budget : 分类预算
+LedgerMember "1" -- "0..*" Budget : 设置
+
+Ledger "1" -- "0..*" Settlement : 发起
+Settlement "1" *-- "1..*" SettlementMember : 成员净额快照
+LedgerMember "1" -- "0..*" SettlementMember : 参与结算
+Settlement "1" *-- "0..*" TransferPlanItem : 转账方案
+LedgerMember "1" -- "0..*" TransferPlanItem : 转出 / 转入
+
+Ledger "1" -- "0..*" OperationLog : 留痕
+LedgerMember "1" -- "0..*" OperationLog : 产生
+LedgerMember "1" -- "0..*" RequestDedup : 发起新增
+
+note right of Record
+  金额 amount 恒为正数，收支方向
+  由 type 表达；最多两位小数，
+  单笔上限 500000.00 元。
+  status 的合法流转见
+  《UML状态图_收支记录》，
+  违反即按 REQ-036 拒绝。
+end note
+
+note bottom of ShareItem
+  创建时按参与成员均摊，余数给
+  加入账本最早的参与者；
+  分摊金额之和必须等于记录金额
+  （REQ-019 / REQ-020）。
+end note
+
+note bottom of Settlement
+  生成时把计算结果与涉及的记录
+  存成快照，之后新增记录不追溯
+  修改本单（REQ-034）。
+end note
+
+note bottom of OperationLog
+  只增不改不删；管理员可查全账本
+  日志，记账成员仅可查与己相关
+  （REQ-039 / 040 / 041）。
+end note
+
+@enduml

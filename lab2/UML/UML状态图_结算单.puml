@@ -1,0 +1,52 @@
+@startuml UML状态图_结算单
+'============================================================
+' 多人共享记账系统 —— 结算单状态机（行为性图）
+' 对应 REQ-030 ~ REQ-034
+'============================================================
+title 结算单状态机（REQ-030 ~ REQ-034）
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 30
+
+[*] --> PENDING : 管理员发起结算
+
+state "待确认" as PENDING
+state "已确认" as CONFIRMED
+state "有争议" as DISPUTED
+state "已作废" as VOIDED
+
+PENDING --> CONFIRMED : 全部参与成员确认完毕
+PENDING --> DISPUTED : 参与成员发起申诉
+DISPUTED --> CONFIRMED : 管理员裁决：维持
+DISPUTED --> VOIDED : 管理员裁决：作废
+PENDING --> VOIDED : 管理员裁决：作废（经申诉）
+
+CONFIRMED --> [*] : 终态
+VOIDED --> [*] : 终态，不可恢复（REQ-034）
+
+note right of PENDING
+  生成时基于"已通过且未被冲正"
+  的记录计算每位成员净额，
+  并把计算结果与涉及的记录
+  存成快照。之后账本新增记录
+  不修改本单，计入下一次结算。
+end note
+
+note right of CONFIRMED
+  管理员裁决为"维持"后直接转为
+  已确认，不再要求成员重新确认
+  （INT-02-L016）。
+  已确认与已作废均不可再申诉。
+end note
+
+note bottom of DISPUTED
+  申诉原因与裁决结论、理由
+  一并写入操作日志，对参与
+  成员可见（REQ-033 / REQ-039）。
+end note
+
+@enduml
