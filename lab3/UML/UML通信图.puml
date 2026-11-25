@@ -1,0 +1,13 @@
+@startuml "通信图 - 多人共享记账系统"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+
+object "管理员" as Admin
+object "记账成员" as Member
+object "结算服务" as SET
+object "统计服务" as SS
+
+Admin -> SET : createSettlement() 返回结算单
+SET -> SS : listApprovedRecords() 返回已通过记录
+Member -> SET : confirmOrAppeal() 返回最新结算单状态
+@enduml

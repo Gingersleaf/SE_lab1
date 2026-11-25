@@ -1,0 +1,73 @@
+@startuml "时序图 - 多人共享记账系统"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+
+actor 记账成员 as Member
+actor 管理员 as Admin
+participant "前端界面" as UI
+participant "接口层" as API
+participant "记录服务" as RS
+participant "幂等校验" as IG
+participant "状态机校验" as SG
+participant "统计服务" as SS
+participant "结算服务" as SET
+participant "关系数据库" as DB
+
+== 成员提交记录 ==
+Member -> UI: submitRecord(id, version, requestId)
+UI -> API: POST /records/{id}/submit
+API -> RS: submit(id, actor)
+RS -> IG: dedupe(requestId)
+IG --> RS: ok
+RS -> SG: validateTransition(DRAFT, PENDING)
+SG --> RS: allow
+RS -> DB: updateStatus(PENDING)
+RS -> DB: appendRecordTrace()
+RS --> API: Record
+API --> UI: 200 已提交
+UI --> Member: 提示已提交等待管理员审核
+
+== 审核与撤回并发 ==
+Member -> UI: withdrawRecord(id)
+UI -> API: POST /records/{id}/withdraw
+API -> RS: withdraw(id, actor)
+RS -> SG: validateTransition(PENDING, DRAFT)
+SG --> RS: conflict
+RS --> API: reject(REQ-036)
+API --> UI: 409 记录状态已变更
+UI --> Member: 提示记录状态已变更请刷新
+
+== 管理员审核通过 ==
+Admin -> UI: approveRecord(id)
+UI -> API: POST /records/{id}/approve
+API -> RS: approve(id, admin)
+RS -> SG: validateTransition(PENDING, APPROVED)
+SG --> RS: allow
+RS -> DB: updateStatus(APPROVED)
+RS -> SS: refreshStatistics()
+SS --> RS: refreshed
+RS --> API: Record
+API --> UI: 200 审核通过
+UI --> Admin: 提示已通过并已计入统计
+
+== 管理员发起结算 ==
+Admin -> UI: createSettlement()
+UI -> API: POST /settlements
+API -> SET: createSettlement(ledgerId, admin)
+SET -> SS: listApprovedRecords()
+SS --> SET: List<Record>
+SET -> SET: calculateNetAmounts()
+SET -> DB: saveSettlementSnapshot()
+SET --> API: Settlement
+API --> UI: 200 结算单已生成
+UI --> Admin: 展示结算单与转账方案
+
+== 成员确认或申诉 ==
+Member -> UI: confirmOrAppeal(id)
+UI -> API: POST /settlements/{id}/confirm
+API -> SET: confirm(id, actor)
+SET -> DB: updateSettlementStatus()
+SET --> API: Settlement
+API --> UI: 200
+UI --> Member: 全部确认后显示已确认申诉后显示有争议
+@enduml

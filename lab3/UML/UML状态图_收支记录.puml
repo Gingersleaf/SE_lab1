@@ -1,0 +1,30 @@
+@startuml "状态图 - 收支记录"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+
+[*] --> DRAFT : 新建记录
+
+DRAFT --> PENDING : 记录人提交
+DRAFT --> APPROVED : 管理员提交本人记录
+
+PENDING --> APPROVED : 管理员审核通过
+PENDING --> REJECTED : 管理员驳回
+PENDING --> DRAFT : 记录人撤回
+PENDING --> VOIDED : 管理员作废
+
+REJECTED --> DRAFT : 记录人修改后保存
+REJECTED --> PENDING : 修改后重新提交
+
+APPROVED --> VOIDED : 管理员作废
+APPROVED --> REVERSED : 冲正记录审核通过
+
+VOIDED --> [*] : 终态
+REVERSED --> [*] : 终态
+
+state "草稿" as DRAFT
+state "待审核" as PENDING
+state "已通过" as APPROVED
+state "已驳回" as REJECTED
+state "已作废" as VOIDED
+state "已冲正" as REVERSED
+@enduml

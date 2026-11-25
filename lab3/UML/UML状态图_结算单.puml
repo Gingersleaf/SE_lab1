@@ -1,0 +1,20 @@
+@startuml "状态图 - 结算单"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+
+[*] --> PENDING_CONFIRM : 管理员发起结算
+
+PENDING_CONFIRM --> CONFIRMED : 全部成员确认完毕
+PENDING_CONFIRM --> DISPUTED : 成员发起申诉
+DISPUTED --> CONFIRMED : 管理员裁决维持
+DISPUTED --> VOIDED : 管理员裁决作废
+PENDING_CONFIRM --> VOIDED : 管理员裁决作废
+
+CONFIRMED --> [*] : 终态
+VOIDED --> [*] : 终态
+
+state "待确认" as PENDING_CONFIRM
+state "已确认" as CONFIRMED
+state "有争议" as DISPUTED
+state "已作废" as VOIDED
+@enduml

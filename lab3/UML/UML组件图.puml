@@ -1,0 +1,75 @@
+@startuml "组件图 - 多人共享记账系统"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+
+' 定义组件
+component "多人共享记账系统" {
+  node "表现层模块" as Presentation {
+    artifact WebUI
+    artifact RestApi
+    artifact AuthInterceptor
+  }
+  node "账本与成员模块" as LedgerMemberModule {
+    artifact LedgerMemberService
+    artifact InvitationService
+  }
+  node "记录与审核模块" as RecordAuditModule {
+    artifact RecordService
+    artifact AuditService
+  }
+  node "分类模块" as CategoryModule {
+    artifact CategoryService
+  }
+  node "统计与预算模块" as StatisticsBudgetModule {
+    artifact StatisticsService
+    artifact BudgetService
+  }
+  node "结算模块" as SettlementModule {
+    artifact SettlementService
+  }
+  node "操作日志模块" as LogModule {
+    artifact LogService
+  }
+  node "支撑模块" as SupportModule {
+    artifact AmountAllocator
+    artifact StateGuard
+    artifact IdempotentGuard
+    artifact OptimisticLock
+  }
+}
+
+' 定义外部实体
+node "用户" as User
+node "关系数据库" as Database
+
+' 定义模块与外部实体之间的关系
+Presentation --> User : 使用
+Presentation --> Database : 读写
+
+' 定义模块之间的关系
+Presentation --> LedgerMemberModule : 调用
+Presentation --> RecordAuditModule : 调用
+Presentation --> CategoryModule : 调用
+Presentation --> StatisticsBudgetModule : 调用
+Presentation --> SettlementModule : 调用
+Presentation --> LogModule : 调用
+
+LedgerMemberModule --> LogModule : 记录成员变更
+RecordAuditModule --> LogModule : 记录记录流转
+SettlementModule --> LogModule : 记录结算过程
+CategoryModule --> LogModule : 记录分类变更
+
+RecordAuditModule --> SupportModule : 依赖校验规则
+StatisticsBudgetModule --> SupportModule : 依赖金额算法
+SettlementModule --> SupportModule : 依赖金额算法
+
+StatisticsBudgetModule --> RecordAuditModule : 读取已通过记录
+SettlementModule --> StatisticsBudgetModule : 读取统计结果
+
+LedgerMemberModule --> Database : 读写
+RecordAuditModule --> Database : 读写
+CategoryModule --> Database : 读写
+StatisticsBudgetModule --> Database : 读写
+SettlementModule --> Database : 读写
+LogModule --> Database : 追加写入
+@enduml

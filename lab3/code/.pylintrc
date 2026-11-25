@@ -1,0 +1,89 @@
+# 多人共享记账系统 · pylint 代码风格配置
+#
+# 配置原则：保留 PEP 8 与常规代码异味检查（命名、导入顺序、未使用的代码、
+# 复杂度、重复代码、异常处理等），只对「与本项目实际写法冲突」的少数规则
+# 放宽，并在每一条后面写明放宽的原因。
+
+[MAIN]
+persistent = no
+jobs = 1
+
+[MESSAGES CONTROL]
+disable =
+    # dataclass 与纯数据类天然只有少数公开方法，类图中的实体全是这种形态
+    too-few-public-methods,
+    # 业务服务的入参较多是领域本身决定的（账本、成员、类型、金额、分类……），
+    # 拆成参数对象反而会让调用处更难读
+    too-many-arguments,
+    # 结算与统计服务的局部变量较多来自多口径聚合，同样是领域决定的
+    too-many-locals,
+    # tkinter 界面对象天然持有大量控件引用
+    too-many-instance-attributes,
+    # 测试用例之间存在刻意的相似结构
+    duplicate-code,
+    # 演示脚本里对异常做了兜底捕获，属于脚本的正常写法
+    broad-except
+
+[REPORTS]
+output-format = text
+reports = no
+score = yes
+
+[FORMAT]
+max-line-length = 100
+indent-string = '    '
+indent-after-paren = 4
+
+[BASIC]
+good-names = i,j,k,n,m,x,y,id,db,to,of,fn,ok,_
+variable-rgx = ^[a-z_][a-z0-9_]{2,30}$
+argument-rgx = ^[a-z_][a-z0-9_]{1,30}$
+attr-rgx = ^[a-z_][a-z0-9_]{1,30}$
+method-rgx = ^[a-z_][a-z0-9_]{1,40}$
+function-rgx = ^[a-z_][a-z0-9_]{1,40}$
+const-rgx = ^(__[a-zA-Z0-9_]+__|[A-Z_][A-Z0-9_]{2,40})$
+inlinevar-rgx = ^[a-z_][a-z0-9_]{1,30}$
+no-docstring-rgx = ^_
+
+[DESIGN]
+max-module-lines = 1500
+max-parents = 8
+max-attributes = 12
+min-public-methods = 0
+max-args = 8
+max-positional-arguments = 10
+max-bool-expr = 5
+max-branches = 14
+max-returns = 8
+max-statements = 60
+max-locals = 25
+
+[VARIABLES]
+dummy-variables-rgx = _+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_
+init-import = no
+
+[IMPORTS]
+deprecated-modules = optparse,tkinter.tix
+known-standard-library =
+    argparse,ast,base64,calendar,collections,contextlib,csv,dataclasses,datetime,
+    decimal,enum,functools,hashlib,hmac,io,itertools,json,logging,math,os,pathlib,
+    re,shutil,sqlite3,string,sys,tempfile,textwrap,threading,time,typing,unittest,
+    uuid,warnings,tkinter
+
+[EXCEPTIONS]
+overgeneral-exceptions = builtins.BaseException
+
+[CLASSES]
+defining-attr-methods = __init__,__new__,setUp,__post_init__
+exclude-too-few-public-methods = yes
+
+[SIMILARITIES]
+min-similarity-lines = 8
+ignore-comments = yes
+ignore-docstrings = yes
+ignore-imports = yes
+ignore-signatures = yes
+
+[TYPECHECK]
+ignored-modules = tkinter,tkinter.ttk
+generated-members = pass,property,setUp,tearDown,configure,grid,grid_rowconfigure,grid_columnconfigure,pack,pack_forget,insert,delete,get,set,append,update,destroy,title,geometry,wm_title,protocol,mainloop,after,columns,heading,column,delete_rows,item,selection_add,selection_remove,tag_configure,tag_bind,see,children,get_children,winfo_exists,focus_set,lift,iconbitmap,resizable,add_argument,add_argument_group,parse_args

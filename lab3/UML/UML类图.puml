@@ -1,0 +1,248 @@
+@startuml "UML类图 - 多人共享记账系统"
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor #FFFFFF
+
+' 账户与账本模块（Account & Ledger Module）
+class User as "用户\nUser" {
+    -passwordHash: string
+    -createdAt: datetime
+    -userId: UUID
+    -accountName: string
+    -displayName: string
+    -status: string
+}
+class Ledger as "账本\nLedger" {
+    -ledgerId: UUID
+    -name: string
+    -adminMemberId: UUID
+    -createdAt: datetime
+    -memberLimit: int
+    -recordLimit: int
+}
+class LedgerMember as "账本成员\nLedgerMember" {
+    -displayName: string
+    -accountName: string
+    -memberId: UUID
+    -userId: UUID
+    -role: Role
+    -status: MemberStatus
+    -joinedAt: datetime
+    -settlementEligible: boolean
+}
+class Invitation as "邀请\nInvitation" {
+    -maxUses: int
+    -invitationId: UUID
+    -token: string
+    -inviteRole: Role
+    -status: InvitationStatus
+    -expiresAt: datetime
+    -usedCount: int
+}
+
+' 记录与审核模块（Record & Audit Module）
+class Record as "收支记录\nRecord" {
+    -reviewedAt: datetime
+    -reviewerId: UUID
+    -recordId: UUID
+    -creatorId: UUID
+    -payerId: UUID
+    -categoryId: UUID
+    -type: RecordType
+    -amount: decimal
+    -recordDate: date
+    -note: string
+    -status: RecordStatus
+    -version: int
+    -requestId: string
+    -reversalOfId: UUID
+    -reversedById: UUID
+    -createdAt: datetime
+    -submittedAt: datetime
+    +submit(): void
+    +withdraw(): void
+    +approve(): void
+    +reject(reason: string): void
+    +voidRecord(reason: string): void
+    +createReversal(): Record
+}
+class ShareItem as "分摊明细\nShareItem" {
+    -shareId: UUID
+    -memberId: UUID
+    -amount: decimal
+    -isRemainderHolder: boolean
+}
+class RecordTrace as "记录历史\nRecordTrace" {
+    -actorName: string
+    -traceId: UUID
+    -action: LogActionType
+    -actorId: UUID
+    -reason: string
+    -fromStatus: RecordStatus
+    -toStatus: RecordStatus
+    -occurredAt: datetime
+}
+class Category as "分类\nCategory" {
+    -recordCount: int
+    -categoryId: UUID
+    -name: string
+    -isDefault: boolean
+    -status: CategoryStatus
+    -createdAt: datetime
+}
+
+' 统计与预算模块（Statistics & Budget Module）
+class Budget as "预算\nBudget" {
+    -budgetId: UUID
+    -categoryId: UUID
+    -amount: decimal
+    -warningRatio: decimal
+    -createdBy: UUID
+    -createdAt: datetime
+}
+class StatResult as "统计结果\nStatResult" {
+    -label: string
+    -dimension: string
+    -income: decimal
+    -expense: decimal
+    -net: decimal
+    -month: string
+}
+
+' 结算模块（Settlement Module）
+class Settlement as "结算单\nSettlement" {
+    -snapshotRecordIds: list
+    -settlementId: UUID
+    -status: SettlementStatus
+    -createdBy: UUID
+    -createdAt: datetime
+    -confirmedAt: datetime
+    -verdict: string
+    -verdictReason: string
+    +createSettlement(): void
+    +confirm(memberId: UUID): void
+    +appeal(reason: string): void
+    +verdictBy(result: string, reason: string): void
+}
+class SettlementMember as "结算成员\nSettlementMember" {
+    -memberName: string
+    -memberId: UUID
+    -netAmount: decimal
+    -confirmed: boolean
+    -confirmedAt: datetime
+    -appealed: boolean
+    -appealReason: string
+}
+class TransferPlanItem as "转账方案条目\nTransferPlanItem" {
+    -fromMemberName: string
+    -toMemberName: string
+    -itemId: UUID
+    -seq: int
+    -fromMemberId: UUID
+    -toMemberId: UUID
+    -amount: decimal
+}
+
+' 公共支撑模块（Common Support Module）
+class OperationLog as "操作日志\nOperationLog" {
+    -actorName: string
+    -logId: UUID
+    -actorId: UUID
+    -action: LogActionType
+    -targetType: string
+    -targetId: UUID
+    -params: string
+    -occurredAt: datetime
+}
+class RequestDedup as "请求去重\nRequestDedup" {
+    -requestId: string
+    -userId: UUID
+    -resultRecordId: UUID
+    -createdAt: datetime
+    -expireAt: datetime
+}
+
+' 枚举（Enums）
+enum Role {
+    ADMIN
+    WRITER
+    READER
+}
+enum MemberStatus {
+    ACTIVE
+    LEFT
+}
+enum InvitationStatus {
+    ISSUED
+    USED
+    REVOKED
+    EXPIRED
+}
+enum RecordStatus {
+    DRAFT
+    PENDING
+    APPROVED
+    REJECTED
+    VOIDED
+    REVERSED
+}
+enum RecordType {
+    EXPENSE
+    INCOME
+}
+enum CategoryStatus {
+    ENABLED
+    DISABLED
+}
+enum SettlementStatus {
+    PENDING_CONFIRM
+    CONFIRMED
+    DISPUTED
+    VOIDED
+}
+enum LogActionType {
+    MEMBER_JOIN
+    MEMBER_LEAVE
+    ROLE_CHANGE
+    RECORD_SUBMIT
+    RECORD_APPROVE
+    RECORD_REJECT
+    RECORD_WITHDRAW
+    RECORD_VOID
+    RECORD_REVERSE
+    SELF_REVIEW
+    SETTLEMENT_CREATE
+    SETTLEMENT_CONFIRM
+    SETTLEMENT_APPEAL
+    SETTLEMENT_VERDICT
+    ACCESS_DENIED
+}
+
+' 关系
+User "1" -- "0..*" LedgerMember : joins >
+Ledger "1" -- "1..50" LedgerMember : owns >
+Ledger "1" -- "0..*" Invitation : issues >
+LedgerMember "1" -- "0..*" Invitation : sends >
+
+Ledger "1" -- "0..*" Record : contains >
+LedgerMember "1" -- "0..*" Record : records >
+Category "1" -- "0..*" Record : classifies >
+Record "1" -- "1..*" ShareItem : splits >
+LedgerMember "1" -- "0..*" ShareItem : bears >
+Record "1" -- "0..1" Record : reverses >
+Record "1" -- "0..*" RecordTrace : traces >
+LedgerMember "1" -- "0..*" RecordTrace : operates >
+
+Ledger "1" -- "0..*" Category : defines >
+Ledger "1" -- "0..*" Budget : sets >
+Category "0..1" -- "0..*" Budget : constrains >
+
+Ledger "1" -- "0..*" Settlement : initiates >
+Settlement "1" -- "1..*" SettlementMember : includes >
+LedgerMember "1" -- "0..*" SettlementMember : participates >
+Settlement "1" -- "0..*" TransferPlanItem : transfers >
+LedgerMember "1" -- "0..*" TransferPlanItem : pays >
+
+Ledger "1" -- "0..*" OperationLog : logs >
+LedgerMember "1" -- "0..*" OperationLog : generates >
+LedgerMember "1" -- "0..*" RequestDedup : submits >
+@enduml
